@@ -35,19 +35,29 @@ class QKVLinear(nn.Module):
             bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
             init.uniform_(self.bias, -bound, bound)
 
-    def forward(self, input: Tensor, p=None) -> Tensor:
-        if p is None:
+    def forward(self, input: Tensor, p_in=None, p_out=None) -> Tensor:
+        if p_in is None:
           return F.linear(input, self.weight, self.bias)
-        else:
-            self.out_features
-            l1 = [i for i in range(p)]
-            l2 = [i for i in range(int(self.out_features/3), int(self.out_features/3) + p)]
-            l3 = [i for i in range(2*int(self.out_features/3), 2*int(self.out_features/3) + p)]
-            return F.linear(input[:,:,0:p],
-                     self.weight[l1+l2+l3, 0:p],
-                     self.bias[l1+l2+l3])
-        
-        return F.linear(input, self.weight, self.bias)
+        if p_out is None:
+            p_out = p_in  # 기존 동작과 호환
+        # out_features = 3 * (각 블록 폭)
+        block = int(self.out_features / 3)  # = global_dim 또는 dim
+
+        # 안전장치 (필수)
+        if p_out > block:
+            raise ValueError(f"p_out({p_out}) > block({block}). QKVLinear slicing out of range.")
+        if p_in > self.in_features:
+            raise ValueError(f"p_in({p_in}) > in_features({self.in_features}).")
+
+        l1 = list(range(0, p_out))
+        l2 = list(range(block, block + p_out))
+        l3 = list(range(2 * block, 2 * block + p_out))
+
+        return F.linear(
+            input[:, :, 0:p_in],
+            self.weight[l1 + l2 + l3, 0:p_in],
+            self.bias[l1 + l2 + l3] if self.bias is not None else None
+        )
 
     def extra_repr(self) -> str:
         return 'in_features={}, out_features={}, bias={}'.format(

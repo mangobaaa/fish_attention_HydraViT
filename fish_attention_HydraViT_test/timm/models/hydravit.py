@@ -326,7 +326,7 @@ class FiSHBlock(Block):
         mlp_layer=Mlp,
         # FiSH 전용 파라미터를 명시적으로 추가
         num_global_heads=4,
-        fish_stochastic=True,
+        fish_stochastic=False,
         fish_hard=False,
         fish_tau=1.0,
     ):
@@ -635,7 +635,7 @@ class HydraViT(nn.Module):
             x = x[:, self.num_prefix_tokens:].mean(dim=1) if self.global_pool == 'avg' else x[:, 0]
         x = self.fc_norm(x)
         x = self.head_drop(x)
-        return x if pre_logits else self.head(x, self.p, 1000)
+        return x if pre_logits else self.head(x, self.p, self.num_classes)
 
     def forward(self, x):
         x = self.forward_features(x, self.p)
